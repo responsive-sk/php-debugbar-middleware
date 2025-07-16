@@ -36,6 +36,9 @@ $configManager = new ConfigManager([
 
 // config/pipeline.php
 $app->pipe(ResponsiveSk\PhpDebugBarMiddleware\DebugBarMiddleware::class);
+
+// src/App/RoutesDelegator.php (REQUIRED for assets)
+$app->get('/debugbar/{file:.+}', [\ResponsiveSk\PhpDebugBarMiddleware\DebugBarAssetsHandler::class], 'debugbar::assets');
 ```
 
 ### Slim 4
@@ -128,6 +131,24 @@ $aggregator = new ConfigAggregator([
 ]);
 
 return $aggregator->getMergedConfig();
+
+// config/pipeline.php
+$app->pipe(ResponsiveSk\PhpDebugBarMiddleware\DebugBarMiddleware::class);
+
+// src/App/RoutesDelegator.php
+public function __invoke(ContainerInterface $container, string $serviceName, callable $callback): Application
+{
+    /** @var Application $app */
+    $app = $callback();
+
+    // Your application routes
+    $app->get('/', [HomePageHandler::class], 'home');
+
+    // DebugBar assets route (REQUIRED for CSS/JS)
+    $app->get('/debugbar/{file:.+}', [\ResponsiveSk\PhpDebugBarMiddleware\DebugBarAssetsHandler::class], 'debugbar::assets');
+
+    return $app;
+}
 ```
 
 ### Slim 4 with Container
@@ -219,6 +240,52 @@ See our [Roadmap](docs/ROADMAP.md) for planned features and enhancement ideas:
 - Mobile-responsive design
 - Plugin system architecture
 - Enterprise features
+
+## 🔧 Troubleshooting
+
+### DebugBar appears but CSS/JS assets return 404
+
+**Problem**: DebugBar HTML is injected but assets (CSS/JS) are not loading.
+
+**Solution**: Make sure you've registered the assets route:
+
+```php
+// In your RoutesDelegator or routes configuration
+$app->get('/debugbar/{file:.+}', [\ResponsiveSk\PhpDebugBarMiddleware\DebugBarAssetsHandler::class], 'debugbar::assets');
+```
+
+### DebugBar doesn't appear at all
+
+**Causes & Solutions**:
+
+1. **Environment Detection**: DebugBar only appears in development
+   ```bash
+   # Set environment variables
+   export APP_ENV=development
+   export DEBUG=true
+   ```
+
+2. **Middleware Not Registered**: Ensure middleware is in pipeline
+   ```php
+   // config/pipeline.php
+   $app->pipe(ResponsiveSk\PhpDebugBarMiddleware\DebugBarMiddleware::class);
+   ```
+
+3. **ConfigProvider Not Loaded**: Check config aggregation
+   ```php
+   // config/config.php
+   $configManager = new ConfigManager([
+       ResponsiveSk\PhpDebugBarMiddleware\ConfigProvider::class,
+       // ... other providers
+   ]);
+   ```
+
+### Class not found errors
+
+**Solution**: Regenerate autoloader
+```bash
+composer dump-autoload
+```
 
 ## 🤝 Contributing
 
